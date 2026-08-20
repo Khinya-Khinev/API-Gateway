@@ -4,11 +4,11 @@ app:
     client-secret: ${GATEWAY_CLIENT_SECRET}
   adapters:
     cors:
-      allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
-      allowed-methods: ${CORS_ALLOWED_METHODS:GET,POST,PUT,DELETE,OPTIONS}
-      allowed-headers: ${CORS_ALLOWED_HEADERS:Authorization,Content-Type}
-      allow-credentials: ${CORS_ALLOW_CREDENTIALS:true}
-      max-age: ${CORS_MAX_AGE:3600}
+      allowed-origins: ${CORS_ALLOWED_ORIGINS}
+      allowed-methods: ${CORS_ALLOWED_METHODS}
+      allowed-headers: ${CORS_ALLOWED_HEADERS}
+      allow-credentials: ${CORS_ALLOW_CREDENTIALS}
+      max-age: ${CORS_MAX_AGE}
 
 server:
   port: 8080
@@ -23,10 +23,7 @@ logging:
   level:
     org.springframework.cloud.gateway: DEBUG
     org.springframework.web: DEBUG
-
     org.springframework.boot.actuate: WARN
-    org.springframework.boot.actuate.endpoint.web.servlet.AbstractWebMvcEndpointHandlerMapping: WARN
-
 
 spring:
   application:
@@ -39,7 +36,7 @@ spring:
       password: ${SPRING_REDIS_PASSWORD}
 
   session:
-    timeout: 30m
+    timeout: ${SESSION_DURATION}
     data:
       redis:
         namespace: waregang:session
@@ -59,16 +56,12 @@ spring:
               - openid
               - profile
               - wms:all
-#        provider:
-#          waregang-auth:
-#            issuer-uri: ${AUTH_SERVER_ISSUER_URL}
         provider:
           waregang-auth:
-            # Убрали issuer-uri — больше не ходим за discovery при старте
-            authorization-uri: http://localhost:9000/oauth2/authorize
-            token-uri: http://auth-service:9000/oauth2/token
-            jwk-set-uri: http://auth-service:9000/oauth2/jwks
-            user-info-uri: http://auth-service:9000/userinfo
+            authorization-uri: ${AUTHORIZATION_URI}
+            token-uri: ${TOKEN_URI}
+            jwk-set-uri: ${JWK_SET_URI}
+            user-info-uri: ${USER_INFO_URI}
             user-name-attribute: sub
 
   cloud:
@@ -76,3 +69,48 @@ spring:
       default-filters:
         - SaveSession
         - TokenRelay
+      server:
+        webflux:
+          routes:
+#            # ========== Бизнес-роуты ==========
+#            - id: receiving-service
+#              uri: http://receiving-service:8080
+#              predicates:
+#                - Path=/api/receiving-service/**
+#              filters:
+#                - TokenRelay
+#
+#            - id: user-service
+#              uri: http://auth-service:9000
+#              predicates:
+#                - Path=/api/users/**
+#              filters:
+#                - TokenRelay
+
+            # ========== Роуты для OpenAPI-спек ==========
+            - id: auth-service-docs
+              uri: http://auth-service:9000
+              predicates:
+                - Path=/v3/api-docs/auth-service/**
+
+            - id: receiving-service-docs
+              uri: http://receiving-service:8080
+              predicates:
+                - Path=/v3/api-docs/receiving-service/**
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+#    oauth:
+#      client-id: ${GATEWAY_CLIENT_ID}
+#      # client-secret нужен только если client confidential
+#      # client-secret: ${GATEWAY_CLIENT_SECRET}
+#      use-pkce-with-authorization-code-grant: true
+#      scopes: openid,profile,wms:all
+    urls:
+      - name: auth-service
+        url: /v3/api-docs/auth-service
+      - name: receiving-service
+        url: /v3/api-docs/receiving-service
+  api-docs:
+    enabled: true

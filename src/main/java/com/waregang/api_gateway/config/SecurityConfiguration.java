@@ -1,5 +1,6 @@
-package com.waregang.api_gateway;
+package com.waregang.api_gateway.config;
 
+import com.waregang.api_gateway.properties.GatewayProperties;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -51,11 +52,12 @@ public class SecurityConfiguration {
         );
 
         http
-                .csrf(csrf -> csrf
-                        .csrfTokenRepository(CookieServerCsrfTokenRepository.withHttpOnlyFalse())
-                )
+                .csrf(ServerHttpSecurity.CsrfSpec::disable)
+//                .csrf(csrf -> csrf
+//                        .csrfTokenRepository(CookieServerCsrfTokenRepository.withHttpOnlyFalse())
+//                )
                 .authorizeExchange(exchange -> exchange
-                        .pathMatchers("/login/**", "/oauth2/**", "/actuator/health").permitAll()
+                        .pathMatchers("/login/**", "/oauth2/**", "/actuator/health", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .anyExchange().authenticated()
                 )
                 .exceptionHandling(ex -> ex.authenticationEntryPoint(apiEntryPoint))

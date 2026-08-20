@@ -1,5 +1,6 @@
-package com.waregang.api_gateway;
+package com.waregang.api_gateway.config;
 
+import com.waregang.api_gateway.properties.CorsProperties;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

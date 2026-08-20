@@ -1,7 +1,6 @@
-package com.waregang.api_gateway;
+package com.waregang.api_gateway.properties;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.context.annotation.Configuration;
 
 @ConfigurationProperties("app.gateway")
 public record GatewayProperties (
