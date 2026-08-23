@@ -32,8 +32,6 @@ public class SecurityConfiguration {
     @Bean
     public SecurityWebFilterChain springSecurityFilterChain(ServerHttpSecurity http) {
 
-        // Для XHR/fetch запросов на /api/** не редиректим на логин, а отдаём 401 —
-        // фронт сам решает, когда инициировать полноценный редирект на логин.
         var apiEntryPoint = new DelegatingServerAuthenticationEntryPoint(
                 new DelegatingServerAuthenticationEntryPoint.DelegateEntry(
                         ServerWebExchangeMatchers.pathMatchers("/api/**"),
@@ -42,7 +40,9 @@ public class SecurityConfiguration {
                                     .getResponse()
                                     .setStatusCode(HttpStatus.UNAUTHORIZED);
 
-                            return exchange.getResponse().setComplete();
+                            return exchange
+                                    .getResponse()
+                                    .setComplete();
                         }
                 )
         );
@@ -52,12 +52,17 @@ public class SecurityConfiguration {
         );
 
         http
-                .csrf(ServerHttpSecurity.CsrfSpec::disable)
-//                .csrf(csrf -> csrf
-//                        .csrfTokenRepository(CookieServerCsrfTokenRepository.withHttpOnlyFalse())
-//                )
+               // .csrf(ServerHttpSecurity.CsrfSpec::disable)
+                .csrf(csrf -> csrf
+                        .csrfTokenRepository(CookieServerCsrfTokenRepository.withHttpOnlyFalse())
+                )
                 .authorizeExchange(exchange -> exchange
-                        .pathMatchers("/login/**", "/oauth2/**", "/actuator/health", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                        .pathMatchers(
+                                "/login/**",
+                                "/oauth2/**",
+                                "/actuator/health",
+                                "/swagger-ui/**",
+                                "/v3/api-docs/**").permitAll()
                         .anyExchange().authenticated()
                 )
                 .exceptionHandling(ex -> ex.authenticationEntryPoint(apiEntryPoint))
@@ -74,7 +79,6 @@ public class SecurityConfiguration {
                     CsrfToken.class.getName(), Mono.empty()
             );
             return csrfToken.doOnSuccess(token -> {
-                /* Принудительно вычисляем Mono, чтобы токен записался в Cookie */
             }).then(chain.filter(exchange));
         };
     }
