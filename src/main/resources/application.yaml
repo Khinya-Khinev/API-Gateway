@@ -1,4 +1,7 @@
 app:
+  auth:
+    success-login-redirect-url: ${SUCCESS_LOGIN_REDIRECT}
+    post-logout-redirect-url: ${POST_LOGOUT_REDIRECT_URL}
   gateway:
     client-id: ${GATEWAY_CLIENT_ID}
     client-secret: ${GATEWAY_CLIENT_SECRET}
@@ -21,8 +24,8 @@ management:
 
 logging:
   level:
-    org.springframework.cloud.gateway: DEBUG
-    org.springframework.web: DEBUG
+    org.springframework.cloud.gateway: TRACE
+    org.springframework.web: TRACE
     org.springframework.boot.actuate: WARN
 
 spring:
@@ -39,14 +42,14 @@ spring:
     timeout: ${SESSION_DURATION}
     data:
       redis:
-        namespace: waregang:session
+        namespace: simple-wms:session
 
   security:
     oauth2:
       client:
         registration:
-          waregang-api-gateway:
-            provider: waregang-auth
+          simple-wms-api-gateway: # ${GATEWAY_CLIENT_ID} this placeholder does not work there - don't try to
+            provider: simple-wms-auth
             client-id: ${GATEWAY_CLIENT_ID}
             client-secret: ${GATEWAY_CLIENT_SECRET}
             client-authentication-method: client_secret_basic
@@ -57,7 +60,10 @@ spring:
               - profile
               - wms:all
         provider:
-          waregang-auth:
+          simple-wms-auth:
+            issuer-uri: ${AUTH_SERVER_ISSUER_URL} # if setted up then makes get .wellknowns and get the configuration
+                                                  # and endpoints from auth-service and as i understood settings below override configs from auth-service
+
             authorization-uri: ${AUTHORIZATION_URI}
             token-uri: ${TOKEN_URI}
             jwk-set-uri: ${JWK_SET_URI}
@@ -98,6 +104,11 @@ spring:
               predicates:
                 - Path=/v3/api-docs/receiving-service/**
 
+#            - id: frontend-route
+#              uri: http://localhost:5173  # Сюда гейтвей перенаправит трафик под капотом
+#              predicates:
+#                - Path=/**
+
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
@@ -112,5 +123,7 @@ springdoc:
         url: /v3/api-docs/auth-service
       - name: receiving-service
         url: /v3/api-docs/receiving-service
+      - name: Gateway API (Профиль)
+        url: /v3/api-docs
   api-docs:
     enabled: true
