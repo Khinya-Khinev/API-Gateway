@@ -9,7 +9,7 @@ relays access tokens to downstream services.
 **Core**
 - Java 25
 - Spring Boot 4
-- Spring Cloud Gateway
+- Spring Cloud Gateway (MVC + Virtual Threads)
 
 **Security**
 - Spring Security + OAuth2 Client
@@ -22,7 +22,11 @@ relays access tokens to downstream services.
 
 ```
 src/main/java/com/waregang/api_gateway/
-├── config/           # Route definitions, CORS, filters
-├── docs/             # Swagger
-└── properties/
+├── config/              # Security, CORS
+├── docs/                # OpenAPI customizers
+├── properties/          # @ConfigurationProperties (auth, cors, gateway)
+└── users/api/           # ProfileController
+
+src/main/resources/
+└── application.yaml     # routes, oauth2 client, redis, VT
 ```

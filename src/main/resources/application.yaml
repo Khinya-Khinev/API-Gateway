@@ -16,19 +16,11 @@ app:
 server:
   port: 8080
 
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health
-
-logging:
-  level:
-    org.springframework.cloud.gateway: TRACE
-    org.springframework.web: TRACE
-    org.springframework.boot.actuate: WARN
-
 spring:
+  threads:
+    virtual:
+      enabled: true
+
   application:
     name: api-gateway
 
@@ -76,24 +68,24 @@ spring:
         - SaveSession
         - TokenRelay
       server:
-        webflux:
+        webmvc:
           routes:
-#            # ========== Бизнес-роуты ==========
-#            - id: receiving-service
-#              uri: http://receiving-service:8080
-#              predicates:
-#                - Path=/api/receiving-service/**
-#              filters:
-#                - TokenRelay
-#
-#            - id: user-service
-#              uri: http://auth-service:9000
-#              predicates:
-#                - Path=/api/users/**
-#              filters:
-#                - TokenRelay
+            # ========== Бизнес-роуты ==========
+            - id: receiving-service
+              uri: http://receiving-service:8080
+              predicates:
+                - Path=/api/receiving-service/**
+              filters:
+                - TokenRelay=
 
-            # ========== Роуты для OpenAPI-спек ==========
+            - id: user-service
+              uri: http://auth-service:9000
+              predicates:
+                - Path=/api/users/**
+              filters:
+                - TokenRelay=
+
+            # ========== OpenAPI spec ==========
             - id: auth-service-docs
               uri: http://auth-service:9000
               predicates:
@@ -104,20 +96,10 @@ spring:
               predicates:
                 - Path=/v3/api-docs/receiving-service/**
 
-#            - id: frontend-route
-#              uri: http://localhost:5173  # Сюда гейтвей перенаправит трафик под капотом
-#              predicates:
-#                - Path=/**
 
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
-#    oauth:
-#      client-id: ${GATEWAY_CLIENT_ID}
-#      # client-secret нужен только если client confidential
-#      # client-secret: ${GATEWAY_CLIENT_SECRET}
-#      use-pkce-with-authorization-code-grant: true
-#      scopes: openid,profile,wms:all
     urls:
       - name: auth-service
         url: /v3/api-docs/auth-service
@@ -127,3 +109,15 @@ springdoc:
         url: /v3/api-docs
   api-docs:
     enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+logging:
+  level:
+    org.springframework.cloud.gateway: TRACE
+    org.springframework.web: TRACE
+    org.springframework.boot.actuate: WARN

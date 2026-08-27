@@ -7,95 +7,87 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.config.Customizer;
-import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
-import org.springframework.security.config.web.server.ServerHttpSecurity;
-import org.springframework.security.oauth2.client.oidc.web.server.logout.OidcClientInitiatedServerLogoutSuccessHandler;
-import org.springframework.security.oauth2.client.registration.ReactiveClientRegistrationRepository;
-import org.springframework.security.web.server.DelegatingServerAuthenticationEntryPoint;
-import org.springframework.security.web.server.SecurityWebFilterChain;
-import org.springframework.security.web.server.authentication.RedirectServerAuthenticationEntryPoint;
-import org.springframework.security.web.server.authentication.RedirectServerAuthenticationSuccessHandler;
-import org.springframework.security.web.server.authentication.logout.ServerLogoutSuccessHandler;
-import org.springframework.security.web.server.csrf.CookieServerCsrfTokenRepository;
-import org.springframework.security.web.server.csrf.CsrfToken;
-import org.springframework.security.web.server.savedrequest.NoOpServerRequestCache;
-import org.springframework.security.web.server.util.matcher.ServerWebExchangeMatchers;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.oauth2.client.oidc.web.logout.OidcClientInitiatedLogoutSuccessHandler;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.HttpStatusEntryPoint;
+import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
+import org.springframework.security.web.authentication.SavedRequestAwareAuthenticationSuccessHandler;
+import org.springframework.security.web.authentication.logout.LogoutSuccessHandler;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
+import org.springframework.security.web.util.matcher.NegatedRequestMatcher;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.web.cors.CorsConfiguration;
-import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource;
-import org.springframework.web.server.WebFilter;
-import reactor.core.publisher.Mono;
-
-import java.net.URI;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 @Configuration
-@EnableWebFluxSecurity
+@EnableWebSecurity
 public class SecurityConfiguration {
 
-    private final ReactiveClientRegistrationRepository clientRegistrationRepository;
-
+    private final ClientRegistrationRepository clientRegistrationRepository;
     private final GatewayProperties gatewayProperties;
     private final AuthProperties authProperties;
     private final CorsProperties corsProperties;
 
     @Autowired
-    public SecurityConfiguration(ReactiveClientRegistrationRepository clientRegistrationRepository, GatewayProperties gatewayProperties, AuthProperties authProperties, CorsProperties corsProperties) {
+    public SecurityConfiguration(
+            ClientRegistrationRepository clientRegistrationRepository,
+            GatewayProperties gatewayProperties,
+            AuthProperties authProperties,
+            CorsProperties corsProperties
+    ) {
         this.clientRegistrationRepository = clientRegistrationRepository;
         this.gatewayProperties = gatewayProperties;
         this.authProperties = authProperties;
         this.corsProperties = corsProperties;
     }
 
-
     @Bean
-    public SecurityWebFilterChain springSecurityFilterChain(ServerHttpSecurity http) {
-        var apiEntryPoint = new DelegatingServerAuthenticationEntryPoint(
-                new DelegatingServerAuthenticationEntryPoint.DelegateEntry(
-                        ServerWebExchangeMatchers.pathMatchers("/api/**"),
-                        (exchange, ex) -> {
-                            exchange
-                                    .getResponse()
-                                    .setStatusCode(HttpStatus.UNAUTHORIZED);
-
-                            return exchange
-                                    .getResponse()
-                                    .setComplete();
-                        }
-                )
-        );
-
-        apiEntryPoint.setDefaultEntryPoint(
-                new RedirectServerAuthenticationEntryPoint("/oauth2/authorization/" + gatewayProperties.clientId())
-        );
-
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) {
+        RequestMatcher apiMatcher = PathPatternRequestMatcher
+                .withDefaults()
+                .matcher("/api/**");
 
         http
-                .csrf(ServerHttpSecurity.CsrfSpec::disable) // for Swagger, dev environment
-//                .csrf(csrf -> csrf
-//                        .csrfTokenRepository(CookieServerCsrfTokenRepository.withHttpOnlyFalse())
-//                )
+                .csrf(csrf -> csrf.disable()) // для Swagger / dev
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                .authorizeExchange(exchange -> exchange
-                        .pathMatchers(
+
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(
                                 "/login/**",
                                 "/oauth2/**",
                                 "/actuator/health",
                                 "/swagger-ui/**",
-                                "/v3/api-docs/**").permitAll()
-                        .anyExchange().authenticated()
+                                "/swagger-ui.html",
+                                "/v3/api-docs/**"
+                        ).permitAll()
+                        .anyRequest().authenticated()
                 )
-                .exceptionHandling(ex -> ex.authenticationEntryPoint(apiEntryPoint))
+
+                .exceptionHandling(ex -> ex
+                        .defaultAuthenticationEntryPointFor(
+                                new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED),
+                                apiMatcher
+                        )
+                        // всё остальное → редирект на OAuth2 login
+                        .defaultAuthenticationEntryPointFor(
+                                new LoginUrlAuthenticationEntryPoint(
+                                        "/oauth2/authorization/" + gatewayProperties.clientId()
+                                ),
+                                new NegatedRequestMatcher(apiMatcher)
+                        )
+                )
 
                 .oauth2Login(oauth2 -> {
-                    // Создаем хандлер
-                    var successHandler = new RedirectServerAuthenticationSuccessHandler(
-                            authProperties.successLoginRedirectUrl()
-                    );
-                    successHandler.setRequestCache(NoOpServerRequestCache.getInstance());
-                    oauth2.authenticationSuccessHandler(successHandler);
-                })
+                    var successHandler = new SavedRequestAwareAuthenticationSuccessHandler();
+                    successHandler.setDefaultTargetUrl(authProperties.successLoginRedirectUrl());
+                    successHandler.setAlwaysUseDefaultTargetUrl(true);
 
-                .requestCache(cache -> cache.requestCache(NoOpServerRequestCache.getInstance()))
+                    oauth2.successHandler(successHandler);
+                })
 
                 .logout(logout -> logout
                         .logoutUrl("/api/auth/logout")
@@ -105,26 +97,16 @@ public class SecurityConfiguration {
         return http.build();
     }
 
-    private ServerLogoutSuccessHandler oidcLogoutSuccessHandler() {
-        var handler = new OidcClientInitiatedServerLogoutSuccessHandler(this.clientRegistrationRepository);
+    private LogoutSuccessHandler oidcLogoutSuccessHandler() {
+        OidcClientInitiatedLogoutSuccessHandler handler =
+                new OidcClientInitiatedLogoutSuccessHandler(this.clientRegistrationRepository);
         handler.setPostLogoutRedirectUri(authProperties.postLogoutRedirectUrl());
 
         return handler;
     }
 
     @Bean
-    public WebFilter csrfCookieWebFilter() {
-        return (exchange, chain) -> {
-            Mono<CsrfToken> csrfToken = exchange.getAttributeOrDefault(
-                    CsrfToken.class.getName(), Mono.empty()
-            );
-            return csrfToken
-                    .doOnSuccess(token -> {})
-                    .then(chain.filter(exchange));
-        };
-    }
-
-    private UrlBasedCorsConfigurationSource corsConfigurationSource() {
+    public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration corsConfig = new CorsConfiguration();
         corsConfig.setAllowedOrigins(corsProperties.allowedOrigins());
         corsConfig.setAllowedMethods(corsProperties.allowedMethods());
