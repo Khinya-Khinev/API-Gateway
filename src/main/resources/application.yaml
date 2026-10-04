@@ -11,7 +11,7 @@ app:
       allowed-methods: ${CORS_ALLOWED_METHODS}
       allowed-headers: ${CORS_ALLOWED_HEADERS}
       allow-credentials: ${CORS_ALLOW_CREDENTIALS}
-      max-age: ${CORS_MAX_AGE}
+      max-age: ${CORS_MAX_AGE_SECONDS}
 
 server:
   port: 8080
@@ -70,7 +70,7 @@ spring:
       server:
         webmvc:
           routes:
-            # ========== Бизнес-роуты ==========
+            # ========== Business Routes ==========
             - id: receiving-service
               uri: http://receiving-service:8080
               predicates:
@@ -101,11 +101,11 @@ springdoc:
   swagger-ui:
     path: /swagger-ui.html
     urls:
-      - name: auth-service
+      - name: Auth Service
         url: /v3/api-docs/auth-service
-      - name: receiving-service
+      - name: Receiving Service
         url: /v3/api-docs/receiving-service
-      - name: Gateway API (Профиль)
+      - name: Gateway API
         url: /v3/api-docs
   api-docs:
     enabled: true
