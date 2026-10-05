@@ -4,6 +4,8 @@ import com.waregang.api_gateway.properties.AuthProperties;
 import com.waregang.api_gateway.properties.CorsProperties;
 import com.waregang.api_gateway.properties.GatewayProperties;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.health.actuate.endpoint.HealthEndpoint;
+import org.springframework.boot.security.autoconfigure.actuate.web.servlet.EndpointRequest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
@@ -60,10 +62,15 @@ public class SecurityConfiguration {
                                 "/login/**",
                                 "/oauth2/**",
                                 "/actuator/health",
+                                "/actuator/health/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
                                 "/v3/api-docs/**"
                         ).permitAll()
+
+                        .requestMatchers(EndpointRequest.to(HealthEndpoint.class))
+                        .permitAll()
+
                         .anyRequest().authenticated()
                 )
 

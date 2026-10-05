@@ -111,10 +111,18 @@ springdoc:
     enabled: true
 
 management:
+  server:
+    port: 8081
   endpoints:
     web:
       exposure:
-        include: health
+        include: "health,info,metrics"
+  endpoint:
+    health:
+      show-details: always
+      show-components: always
+      probes:
+        enabled: true
 
 logging:
   level:
